@@ -2,15 +2,12 @@ package src;
 
 import java.io.*;
 import java.net.*;
-import java.util.PriorityQueue;
 
 class ClientHandler implements Runnable {
-    private Socket socket;
-    private BufferedReader in;
-    private PrintWriter out;
+    private final Socket socket;
+    private final BufferedReader in;
+    private final PrintWriter out;
     private String username;
-    private PriorityQueue<String> receivedMessages = new PriorityQueue<>();
-    private PriorityQueue<String> sentMessages = new PriorityQueue<>();
 
     public ClientHandler(Socket socket) throws IOException {
         this.socket = socket;
@@ -21,11 +18,16 @@ class ClientHandler implements Runnable {
     @Override
     public void run() {
         try {
+            // Prompt for the username
             out.println("Welcome! Please enter your username:");
             username = in.readLine();
+
+            // Send message history and list of active users to the new user
+            ChatServer.sendHistoryAndUsers(this);
+
+            // Register the user (broadcasts join message)
             ChatServer.registerUser(username, this);
 
-            ChatServer.sendHistory(this);  // Send message history to the user
             out.println("Type /help for available commands.");
             displayMenu();
 
@@ -38,63 +40,16 @@ class ClientHandler implements Runnable {
                 }
             }
         } catch (IOException e) {
-            System.err.println("Error handling client: " + e.getMessage());
+            System.err.println("Error handling client (" + username + "): " + e.getMessage());
         } finally {
+            if (username != null) {
+                ChatServer.removeUser(username);
+            }
             try {
                 socket.close();
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }
-    }
-
-    public void enterPrivateRoom(String roomId, ClientHandler sender, ClientHandler receiver) throws IOException {
-        out.println("==========================================");
-        out.println("         Entering Private Room...         ");
-        out.println("==========================================");
-
-        new Thread(() -> {
-            try {
-                BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
-                while (true) {
-                    if (!receivedMessages.isEmpty()) {
-                        out.println("          Received Messages:          ");
-                        out.println("------------------------------------------");
-                        while (!receivedMessages.isEmpty()) {
-                            out.println(receivedMessages.poll());
-                        }
-                    }
-
-                    out.println("------------------------------------------");
-                    out.println("             Your Messages:              ");
-                    out.println("------------------------------------------");
-
-                    String userMessage = consoleReader.readLine();
-                    sentMessages.add("You: " + userMessage);
-                    receiver.receiveMessage(username + ": " + userMessage);
-                    displayMessages();
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }).start();
-    }
-
-    public void receiveMessage(String message) {
-        receivedMessages.add(message);
-    }
-
-    private void displayMessages() {
-        out.println("          Received Messages:          ");
-        out.println("------------------------------------------");
-        for (String message : receivedMessages) {
-            out.println(message);
-        }
-        out.println("------------------------------------------");
-        out.println("             Your Messages:              ");
-        out.println("------------------------------------------");
-        for (String message : sentMessages) {
-            out.println(message);
         }
     }
 
@@ -117,6 +72,7 @@ class ClientHandler implements Runnable {
         return username;
     }
 
+    // Handle commands like /list, /invite, /accept, /decline
     private void handleCommand(String command) throws IOException {
         if (command.equals("/list")) {
             out.println("Active users: " + String.join(", ", ChatServer.listUsers()));
