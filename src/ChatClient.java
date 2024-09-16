@@ -4,7 +4,7 @@ import java.io.*;
 import java.net.*;
 
 public class ChatClient {
-    public static void main(String[] args) {
+    public static void startClient() throws IOException {
         try (Socket socket = new Socket("localhost", 12345);
              BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
              BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -24,10 +24,12 @@ public class ChatClient {
                 }
             }).start();
 
-            // Handle user input
+            // Handle user input (sending only to server, not printing locally)
             String userInput;
             while ((userInput = consoleReader.readLine()) != null) {
-                out.println(userInput);  // Send message to server
+                if (!userInput.trim().isEmpty()) {
+                    out.println(userInput);  // Send message to server
+                }
                 if (userInput.equalsIgnoreCase("/exit")) {
                     break; // Exit the loop if user types /exit
                 }
