@@ -1,4 +1,4 @@
-Project Design Document
+Design Document
 
 1. Introduction
 
